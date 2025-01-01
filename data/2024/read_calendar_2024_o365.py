@@ -32,7 +32,6 @@ def fetch_appointments_for_year():
 
     return pd.DataFrame(data)
 
-
 # Save to CSV
 def save_appointments_to_csv():
     try:
