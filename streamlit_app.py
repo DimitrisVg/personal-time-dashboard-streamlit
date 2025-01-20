@@ -1,4 +1,5 @@
 import streamlit as st
+import os
 import pandas as pd
 import datetime
 import plotly.express as px
@@ -39,8 +40,11 @@ def load_weekly_data(file_path):
     # Placeholder for weekly data loading logic if needed
     return load_yearly_data(file_path)
 
-# File path for the dataset
-file_path = r'data\2025\2025_outlook_data.csv'
+# Get the directory of the current script
+current_dir = os.path.dirname(__file__)
+
+# File path for the dataset (generic)
+file_path = os.path.join(current_dir,"data","2025","2025_outlook_data.csv")
 
 # Define color scheme for categories
 CATEGORY_COLORS = {
