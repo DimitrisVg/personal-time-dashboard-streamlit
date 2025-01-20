@@ -1,5 +1,4 @@
 import streamlit as st
-import os
 import pandas as pd
 import datetime
 import plotly.express as px
@@ -15,6 +14,15 @@ st.set_page_config(
 # Sidebar navigation
 st.sidebar.title("Navigation")
 page = st.sidebar.radio("Go to", ["Yearly Overview", "Weekly Overview"])
+
+# Year selector
+selected_year = st.sidebar.selectbox("Select Year", [2024, 2025])
+
+# Determine file path based on selected year
+if selected_year == 2024:
+    file_path = r'data\\2024\\2024_outlook_data.csv'
+else:
+    file_path = r'data\\2025\\2025_outlook_data.csv'
 
 # Utility functions
 def load_yearly_data(file_path):
@@ -40,18 +48,13 @@ def load_weekly_data(file_path):
     # Placeholder for weekly data loading logic if needed
     return load_yearly_data(file_path)
 
-# Get the directory of the current script
-current_dir = os.path.dirname(__file__)
-
-# File path for the dataset (generic)
-file_path = os.path.join(current_dir,"data","2025","2025_outlook_data.csv")
-
 # Define color scheme for categories
 CATEGORY_COLORS = {
     "Ύπνος": "lightgrey",
     "<3": "mediumpurple",
     "Εργασία": "#b05a69",
     "Yellow category": "#f4e76a",
+    "Purple category": "mediumpurple",
     "Χαζεύω": "black",
     "Σπίτι": "darkgrey",
     "Φίλοι": "orange",
@@ -61,7 +64,8 @@ CATEGORY_COLORS = {
     "Διάβασμα": "#d66871",
     "Erroneοus Tasks": "#e18563",
     "Break": "#ec6ab9",
-    "Exercise": "red"
+    "Exercise": "red",
+    "Λάμπρος": "blue"
 }
 
 # Yearly Overview Page
@@ -95,7 +99,7 @@ if page == "Yearly Overview":
         filtered_data = yearly_data[yearly_data['Categories'] == selected_category]
         if not filtered_data.empty:
             # Generate a full calendar year for heatmap
-            full_year = pd.date_range(start="2025-01-01", end="2025-12-31")
+            full_year = pd.date_range(start=f"{selected_year}-01-01", end=f"{selected_year}-12-31")
             heatmap_data = filtered_data.groupby(filtered_data['Start Date'].dt.date)['Duration'].sum().reindex(full_year, fill_value=0).reset_index()
             heatmap_data.columns = ['Date', 'Duration']
             heatmap_data['Week'] = heatmap_data['Date'].dt.isocalendar().week
@@ -107,7 +111,7 @@ if page == "Yearly Overview":
                     z=heatmap_data['Duration'],
                     x=heatmap_data['Week'],
                     y=heatmap_data['Day of Week'],
-                    colorscale='Bluered',
+                    colorscale='Viridis',
                     colorbar=dict(title="Hours Spent"),
                     xgap=2,  # Ensure square cells
                     ygap=2
