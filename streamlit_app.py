@@ -134,6 +134,31 @@ if page == "Yearly Overview":
             st.plotly_chart(heatmap_fig)
         else:
             st.write("No activity data available for the selected category.")
+        
+        # Line chart: Monthly aggregate time spent per category
+        st.header("Monthly Time Spent per Category")
+        monthly_category_data = yearly_data.groupby([yearly_data['Start Date'].dt.month, 'Categories'])['Duration'].sum().reset_index()
+        monthly_category_data.columns = ['Month', 'Category', 'Total Hours']
+
+        fig_line = px.line(
+            monthly_category_data,
+            x='Month',
+            y='Total Hours',
+            color='Category',
+            title="Aggregate Monthly Time Spent per Category",
+            line_shape='spline',
+            color_discrete_map=CATEGORY_COLORS,
+            labels={'Month': 'Month of Year', 'Total Hours': 'Hours Spent'}
+        )
+        fig_line.update_layout(
+            xaxis=dict(
+                tickmode='array',
+                tickvals=list(range(1, 13)),
+                ticktext=['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+            )
+        )
+        st.plotly_chart(fig_line)
+
     else:
         st.write("No category data available.")
 
