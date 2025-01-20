@@ -1,151 +1,173 @@
 import streamlit as st
 import pandas as pd
-import math
-from pathlib import Path
+import datetime
+import plotly.express as px
+import plotly.graph_objects as go
 
-# Set the title and favicon that appear in the Browser's tab bar.
+# Set the app configuration
 st.set_page_config(
-    page_title='Personal Time Dashboard',
-    page_icon=':clock3:', # This is an emoji shortcode. Could be a URL too.
+    page_title="Personal Time Dashboard",
+    page_icon=":clock3:",
+    layout="centered"
 )
 
-# -----------------------------------------------------------------------------
-# Declare some useful functions.
+# Sidebar navigation
+st.sidebar.title("Navigation")
+page = st.sidebar.radio("Go to", ["Yearly Overview", "Weekly Overview"])
 
-@st.cache_data
-def get_gdp_data():
-    """Grab GDP data from a CSV file.
+# Utility functions
+def load_yearly_data(file_path):
+    # Load dataset and preprocess
+    data = pd.read_csv(file_path)
+    data['Start Date'] = pd.to_datetime(data['Start Date'], format='%d/%m/%Y')
+    data['End Date'] = pd.to_datetime(data['End Date'], format='%d/%m/%Y')
+    data['Start Time'] = pd.to_datetime(data['Start Time'], format='%H:%M:%S').dt.time
+    data['End Time'] = pd.to_datetime(data['End Time'], format='%H:%M:%S').dt.time
 
-    This uses caching to avoid having to read the file every time. If we were
-    reading from an HTTP endpoint instead of a file, it's a good idea to set
-    a maximum age to the cache with the TTL argument: @st.cache_data(ttl='1d')
-    """
+    # Handle duration calculation, including events spanning midnight
+    def calculate_duration(row):
+        start = datetime.datetime.combine(row['Start Date'], row['Start Time'])
+        end = datetime.datetime.combine(row['End Date'], row['End Time'])
+        if end < start:  # Handle overnight events
+            end += datetime.timedelta(days=1)
+        return (end - start).total_seconds() / 3600.0
 
-    # Instead of a CSV on disk, you could read from an HTTP endpoint here too.
-    DATA_FILENAME = Path(__file__).parent/'data/gdp_data.csv'
-    raw_gdp_df = pd.read_csv(DATA_FILENAME)
+    data['Duration'] = data.apply(calculate_duration, axis=1)
+    return data
 
-    MIN_YEAR = 1960
-    MAX_YEAR = 2022
+def load_weekly_data(file_path):
+    # Placeholder for weekly data loading logic if needed
+    return load_yearly_data(file_path)
 
-    # The data above has columns like:
-    # - Country Name
-    # - Country Code
-    # - [Stuff I don't care about]
-    # - GDP for 1960
-    # - GDP for 1961
-    # - GDP for 1962
-    # - ...
-    # - GDP for 2022
-    #
-    # ...but I want this instead:
-    # - Country Name
-    # - Country Code
-    # - Year
-    # - GDP
-    #
-    # So let's pivot all those year-columns into two: Year and GDP
-    gdp_df = raw_gdp_df.melt(
-        ['Country Code'],
-        [str(x) for x in range(MIN_YEAR, MAX_YEAR + 1)],
-        'Year',
-        'GDP',
+# File path for the dataset
+file_path = r'data\2025\2025_outlook_data.csv'
+
+# Define color scheme for categories
+CATEGORY_COLORS = {
+    "Ύπνος": "lightgrey",
+    "<3": "mediumpurple",
+    "Εργασία": "#b05a69",
+    "Yellow category": "#f4e76a",
+    "Χαζεύω": "black",
+    "Σπίτι": "darkgrey",
+    "Φίλοι": "orange",
+    "Blyat": "blue",
+    "Οικογένεια": "#5aca91",
+    "Other": "#63d2d9",
+    "Διάβασμα": "#d66871",
+    "Erroneοus Tasks": "#e18563",
+    "Break": "#ec6ab9",
+    "Exercise": "red"
+}
+
+# Yearly Overview Page
+if page == "Yearly Overview":
+    st.title(":clock3: Yearly Overview")
+    st.write("Explore your yearly time data.")
+
+    # Load data
+    yearly_data = load_yearly_data(file_path)
+
+    # Pie chart for categories
+    st.header("Time Spent by Category")
+    category_data = yearly_data.groupby('Categories')['Duration'].sum().dropna().reset_index()
+
+    if not category_data.empty:
+        fig = px.pie(
+            category_data,
+            names='Categories',
+            values='Duration',
+            title='Time Spent by Category',
+            hole=0.4,
+            color='Categories',
+            color_discrete_map=CATEGORY_COLORS
+        )
+        st.plotly_chart(fig)
+
+        # GitHub-style activity heatmap
+        st.header("Activity Heatmap")
+        selected_category = st.selectbox("Select a category to view activity:", category_data['Categories'].unique())
+
+        filtered_data = yearly_data[yearly_data['Categories'] == selected_category]
+        if not filtered_data.empty:
+            # Generate a full calendar year for heatmap
+            full_year = pd.date_range(start="2025-01-01", end="2025-12-31")
+            heatmap_data = filtered_data.groupby(filtered_data['Start Date'].dt.date)['Duration'].sum().reindex(full_year, fill_value=0).reset_index()
+            heatmap_data.columns = ['Date', 'Duration']
+            heatmap_data['Week'] = heatmap_data['Date'].dt.isocalendar().week
+            heatmap_data['Day of Week'] = heatmap_data['Date'].dt.dayofweek
+
+            # Create a GitHub-style heatmap
+            heatmap_fig = go.Figure(
+                data=go.Heatmap(
+                    z=heatmap_data['Duration'],
+                    x=heatmap_data['Week'],
+                    y=heatmap_data['Day of Week'],
+                    colorscale='Bluered',
+                    colorbar=dict(title="Hours Spent"),
+                    xgap=2,  # Ensure square cells
+                    ygap=2
+                )
+            )
+            heatmap_fig.update_layout(
+                title=f"Activity Heatmap for {selected_category}",
+                xaxis_title="Week of Year",
+                yaxis_title="Day of Week",
+                yaxis=dict(
+                    tickmode='array',
+                    tickvals=list(range(7)),
+                    ticktext=['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+                ),
+                xaxis=dict(
+                    scaleanchor="y",
+                    scaleratio=1
+                )
+            )
+            st.plotly_chart(heatmap_fig)
+        else:
+            st.write("No activity data available for the selected category.")
+    else:
+        st.write("No category data available.")
+
+# Weekly Overview Page
+elif page == "Weekly Overview":
+    st.title(":clock3: Weekly Overview")
+    st.write("Dive into your weekly time data.")
+
+    # Load data
+    weekly_data = load_weekly_data(file_path)
+
+    # Select a specific week range
+    st.header("Filter Weeks")
+    start_week, end_week = st.slider(
+        "Select week range:",
+        1, 52, (1, 52),
+        format="Week %d"
     )
 
-    # Convert years from string to integers
-    gdp_df['Year'] = pd.to_numeric(gdp_df['Year'])
+    # Assuming dataset has a "Week" column or needs to be created
+    weekly_data['Week'] = weekly_data['Start Date'].dt.isocalendar().week
+    filtered_data = weekly_data[(weekly_data['Week'] >= start_week) & (weekly_data['Week'] <= end_week)]
 
-    return gdp_df
+    # Display bar chart
+    st.header("Weekly Time Spent")
+    weekly_summary = filtered_data.groupby('Week')['Duration'].sum().reset_index()
 
-gdp_df = get_gdp_data()
-
-# -----------------------------------------------------------------------------
-# Draw the actual page
-
-# Set the title that appears at the top of the page.
-'''
-# :clock3: Dashboard
-
-Browse GDP data from the [World Bank Open Data](https://data.worldbank.org/) website. As you'll
-notice, the data only goes to 2022 right now, and datapoints for certain years are often missing.
-But it's otherwise a great (and did I mention _free_?) source of data.
-'''
-
-# Add some spacing
-''
-''
-
-min_value = gdp_df['Year'].min()
-max_value = gdp_df['Year'].max()
-
-from_year, to_year = st.slider(
-    'Which years are you interested in?',
-    min_value=min_value,
-    max_value=max_value,
-    value=[min_value, max_value])
-
-countries = gdp_df['Country Code'].unique()
-
-if not len(countries):
-    st.warning("Select at least one country")
-
-selected_countries = st.multiselect(
-    'Which countries would you like to view?',
-    countries,
-    ['DEU', 'FRA', 'GBR', 'BRA', 'MEX', 'JPN'])
-
-''
-''
-''
-
-# Filter the data
-filtered_gdp_df = gdp_df[
-    (gdp_df['Country Code'].isin(selected_countries))
-    & (gdp_df['Year'] <= to_year)
-    & (from_year <= gdp_df['Year'])
-]
-
-st.header('GDP over time', divider='gray')
-
-''
-
-st.line_chart(
-    filtered_gdp_df,
-    x='Year',
-    y='GDP',
-    color='Country Code',
-)
-
-''
-''
-
-
-first_year = gdp_df[gdp_df['Year'] == from_year]
-last_year = gdp_df[gdp_df['Year'] == to_year]
-
-st.header(f'GDP in {to_year}', divider='gray')
-
-''
-
-cols = st.columns(4)
-
-for i, country in enumerate(selected_countries):
-    col = cols[i % len(cols)]
-
-    with col:
-        first_gdp = first_year[first_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
-        last_gdp = last_year[last_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
-
-        if math.isnan(first_gdp):
-            growth = 'n/a'
-            delta_color = 'off'
-        else:
-            growth = f'{last_gdp / first_gdp:,.2f}x'
-            delta_color = 'normal'
-
-        st.metric(
-            label=f'{country} GDP',
-            value=f'{last_gdp:,.0f}B',
-            delta=growth,
-            delta_color=delta_color
+    if not weekly_summary.empty:
+        fig = px.bar(
+            weekly_summary,
+            x='Week',
+            y='Duration',
+            title='Weekly Time Spent',
+            labels={'Duration': 'Hours Spent'},
+            color_discrete_sequence=['blue']  # Example default color for weekly bar chart
         )
+        st.plotly_chart(fig)
+    else:
+        st.write("No data available for the selected weeks.")
+
+    # Summary metrics
+    total_hours = weekly_summary['Duration'].sum()
+    avg_hours = weekly_summary['Duration'].mean()
+    st.metric(label="Total Hours Spent", value=f"{total_hours:.2f} hours")
+    st.metric(label="Average Hours per Week", value=f"{avg_hours:.2f} hours")
