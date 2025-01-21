@@ -142,6 +142,7 @@ if page == "Yearly Overview":
         
         # Line chart: Monthly aggregate time spent per category
         st.header("Monthly Time Spent per Category")
+        st.subheader("Line monthly chart")
         monthly_category_data = yearly_data.groupby([yearly_data['Start Date'].dt.month, 'Categories'])['Duration'].sum().reset_index()
         monthly_category_data.columns = ['Month', 'Category', 'Total Hours']
 
@@ -164,10 +165,32 @@ if page == "Yearly Overview":
         )
         st.plotly_chart(fig_line)
 
+        # Stacked monthly chart
+        st.subheader("Stacked monthly chart")
+        fig_bar = px.bar(
+            monthly_category_data,
+            x="Month",             # x-axis
+            y="Total Hours",      # y-axis values to stack
+            color="Category",         # grouping variable to stack by
+            barmode="stack",     # stack bars
+            color_discrete_map=CATEGORY_COLORS
+        )
+
+        fig_bar.update_layout(
+            xaxis=dict(
+                tickmode='array',
+                tickvals=list(range(1, 13)),
+                ticktext=['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+            )
+        )
+        
+        st.plotly_chart(fig_bar)
+
     else:
         st.write("No category data available.")
+        # Create a 100%-stacked bar chart
 
-# Weekly Overview Page
+# ==============================Weekly Overview Page=================================
 elif page == "Weekly Overview":
     st.title(":clock3: Weekly Overview")
     st.write("Dive into your weekly time data.")
