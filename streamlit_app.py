@@ -3,6 +3,7 @@ import pandas as pd
 import datetime
 import plotly.express as px
 import plotly.graph_objects as go
+import os
 
 # Set the app configuration
 st.set_page_config(
@@ -18,11 +19,15 @@ page = st.sidebar.radio("Go to", ["Yearly Overview", "Weekly Overview"])
 # Year selector
 selected_year = st.sidebar.selectbox("Select Year", [2024, 2025])
 
+# Get the directory of the current script
+current_dir = os.path.dirname(__file__)
+
 # Determine file path based on selected year
 if selected_year == 2024:
-    file_path = r'data\\2024\\2024_outlook_data.csv'
+    # File path for the dataset (generic)
+    file_path = os.path.join(current_dir,"data","2024","2024_outlook_data.csv")
 else:
-    file_path = r'data\\2025\\2025_outlook_data.csv'
+    file_path = os.path.join(current_dir,"data","2025","2025_outlook_data.csv")
 
 # Utility functions
 def load_yearly_data(file_path):
