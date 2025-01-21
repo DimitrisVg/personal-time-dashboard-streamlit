@@ -116,7 +116,7 @@ if page == "Yearly Overview":
                     z=heatmap_data['Duration'],
                     x=heatmap_data['Week'],
                     y=heatmap_data['Day of Week'],
-                    colorscale='Viridis',
+                    colorscale='Bluered',
                     colorbar=dict(title="Hours Spent"),
                     xgap=2,  # Ensure square cells
                     ygap=2
